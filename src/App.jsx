@@ -7,6 +7,11 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { Trash2, Plus, Loader } from 'lucide-react';
 
 const API_BASE = 'http://localhost:5000/api';
+const PAYMENT_METHOD_OPTIONS = [
+  { value: 'pix', label: 'Pix' },
+  { value: 'debito', label: 'Débito' },
+  { value: 'credito', label: 'Crédito' },
+];
 
 export default function FinancialDashboard() {
   const currentDate = new Date();
@@ -17,12 +22,18 @@ export default function FinancialDashboard() {
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingCat, setLoadingCat] = useState(true);
+  const [creatingCategory, setCreatingCategory] = useState(false);
 
   const [formData, setFormData] = useState({
     descricao: '',
     categoria_id: '',
+    pay: '',
     valor: '',
     data_despesa: currentDate.toISOString().split('T')[0],
+  });
+  const [newCategory, setNewCategory] = useState({
+    nome: '',
+    cor_hex: '#3b82f6',
   });
 
   const [selectedYear, setSelectedYear] = useState(String(currentYear));
@@ -42,14 +53,49 @@ export default function FinancialDashboard() {
       if (!res.ok) throw new Error('Erro ao buscar categorias');
       const data = await res.json();
       setCategorias(data);
-      if (data.length > 0 && !formData.categoria_id) {
-        setFormData(prev => ({ ...prev, categoria_id: data[0].id }));
-      }
     } catch (error) {
       console.error('Erro:', error);
       alert('❌ Erro ao carregar categorias');
     } finally {
       setLoadingCat(false);
+    }
+  };
+
+  const getPaymentLabel = (value) => {
+    return PAYMENT_METHOD_OPTIONS.find(method => method.value === value)?.label || value;
+  };
+
+  const handleCreateCategory = async () => {
+    const categoryName = newCategory.nome.trim();
+
+    if (!categoryName) {
+      alert('⚠️ Informe o nome da categoria');
+      return;
+    }
+
+    try {
+      setCreatingCategory(true);
+      const res = await fetch(API_BASE + '/categorias', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: categoryName,
+          cor_hex: newCategory.cor_hex,
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao criar categoria');
+
+      setCategorias(prev => [...prev, data].sort((a, b) => a.nome.localeCompare(b.nome)));
+      setFormData(prev => ({ ...prev, categoria_id: String(data.id) }));
+      setNewCategory({ nome: '', cor_hex: '#3b82f6' });
+      alert('✅ Categoria criada com sucesso!');
+    } catch (error) {
+      console.error('Erro:', error);
+      alert('❌ ' + error.message);
+    } finally {
+      setCreatingCategory(false);
     }
   };
 
@@ -81,19 +127,20 @@ export default function FinancialDashboard() {
   // ADICIONAR DESPESA
   // ============================================
   const handleAddExpense = async () => {
-    if (!formData.descricao.trim() || !formData.categoria_id || !formData.valor) {
+    if (!formData.descricao.trim() || !formData.categoria_id || !formData.valor || !formData.pay) {
       alert('⚠️ Preencha todos os campos corretamente');
       return;
     }
 
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/despesas`, {
+      const res = await fetch(API_BASE + '/despesas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           descricao: formData.descricao,
           categoria_id: parseInt(formData.categoria_id),
+          pay: formData.pay,
           valor: parseFloat(formData.valor),
           data_despesa: formData.data_despesa,
         })
@@ -104,7 +151,8 @@ export default function FinancialDashboard() {
       alert('✅ Despesa adicionada com sucesso!');
       setFormData({
         descricao: '',
-        categoria_id: formData.categoria_id,
+        categoria_id: '',
+        pay: '',
         valor: '',
         data_despesa: new Date().toISOString().split('T')[0],
       });
@@ -231,6 +279,50 @@ export default function FinancialDashboard() {
                       <option value="">Selecione uma categoria</option>
                       {categorias.map(cat => (
                         <option key={cat.id} value={cat.id}>{cat.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Criar Categoria</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="ex: Transporte"
+                        value={newCategory.nome}
+                        onChange={(e) => setNewCategory({...newCategory, nome: e.target.value})}
+                        disabled={creatingCategory}
+                        className="min-w-0 flex-1 bg-slate-700 text-white rounded px-3 py-2 border border-slate-600 focus:border-blue-500 outline-none disabled:opacity-50"
+                      />
+                      <input
+                        type="color"
+                        value={newCategory.cor_hex}
+                        onChange={(e) => setNewCategory({...newCategory, cor_hex: e.target.value})}
+                        disabled={creatingCategory}
+                        className="h-10 w-12 rounded border border-slate-600 bg-slate-700 disabled:opacity-50"
+                        title="Cor da categoria"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCreateCategory}
+                        disabled={creatingCategory}
+                        className="h-10 w-10 rounded bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center transition disabled:opacity-50"
+                        title="Criar categoria"
+                      >
+                        {creatingCategory ? <Loader size={16} className="animate-spin" /> : <Plus size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Método de Pagamento *</label>
+                    <select
+                      value={formData.pay}
+                      onChange={(e) => setFormData({...formData, pay: e.target.value})}
+                      disabled={loading}
+                      className="w-full bg-slate-700 text-white rounded px-3 py-2 border border-slate-600 focus:border-blue-500 outline-none disabled:opacity-50"
+                    >
+                      <option value="">Selecione o método</option>
+                      {PAYMENT_METHOD_OPTIONS.map(method => (
+                        <option key={method.value} value={method.value}>{method.label}</option>
                       ))}
                     </select>
                   </div>
@@ -381,6 +473,7 @@ export default function FinancialDashboard() {
                         <th className="text-left py-3 px-4 text-slate-300 font-semibold">Data</th>
                         <th className="text-left py-3 px-4 text-slate-300 font-semibold">Descrição</th>
                         <th className="text-left py-3 px-4 text-slate-300 font-semibold">Categoria</th>
+                        <th className="text-left py-3 px-4 text-slate-300 font-semibold">Pagamento</th>
                         <th className="text-right py-3 px-4 text-slate-300 font-semibold">Valor</th>
                         <th className="text-center py-3 px-4 text-slate-300 font-semibold">Ação</th>
                       </tr>
@@ -396,6 +489,7 @@ export default function FinancialDashboard() {
                                 {exp.categoria}
                               </span>
                             </td>
+                            <td className="py-3 px-4 text-slate-200">{getPaymentLabel(exp.pay)}</td>
                             <td className="py-3 px-4 text-right text-slate-200 font-semibold">R$ {parseFloat(exp.valor).toFixed(2)}</td>
                             <td className="py-3 px-4 text-center">
                               <button
@@ -410,7 +504,7 @@ export default function FinancialDashboard() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="5" className="py-8 text-center text-slate-500">
+                          <td colSpan="6" className="py-8 text-center text-slate-500">
                             Nenhuma despesa registrada neste período
                           </td>
                         </tr>

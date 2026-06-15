@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS despesas (
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     observacoes TEXT,
+    pay ENUM('pix', 'debito', 'credito') NOT NULL DEFAULT 'pix',
     ativo BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (categoria_id) REFERENCES categorias_despesa(id) ON DELETE RESTRICT,
@@ -88,13 +89,13 @@ INSERT INTO categorias_despesa (usuario_id, nome, cor_hex) VALUES
 (1, 'Alimentação', '#f97316');
 
 -- Inserir despesas de exemplo
-INSERT INTO despesas (usuario_id, categoria_id, descricao, valor, data_despesa) VALUES 
-(1, 1, 'Compras diversas', 250.00, '2026-06-05'),
-(1, 2, 'Alimentação no supermercado', 350.00, '2026-06-10'),
-(1, 3, 'Compras de roupas', 200.00, '2026-06-08'),
-(1, 4, 'Conta de luz - junho', 150.00, '2026-06-01'),
-(1, 5, 'Conta de água - junho', 80.00, '2026-06-02'),
-(1, 6, 'Mensalidade internet', 100.00, '2026-06-03');
+INSERT INTO despesas (usuario_id, categoria_id, descricao, valor, data_despesa, pay) VALUES 
+(1, 1, 'Compras diversas', 250.00, '2026-06-05', 'credito'),
+(1, 2, 'Alimentação no supermercado', 350.00, '2026-06-10', 'debito'),
+(1, 3, 'Compras de roupas', 200.00, '2026-06-08', 'credito'),
+(1, 4, 'Conta de luz - junho', 150.00, '2026-06-01', 'pix'),
+(1, 5, 'Conta de água - junho', 80.00, '2026-06-02', 'pix'),
+(1, 6, 'Mensalidade internet', 100.00, '2026-06-03', 'debito');
 
 -- ============================================
 -- QUERIES ÚTEIS
@@ -106,6 +107,7 @@ INSERT INTO despesas (usuario_id, categoria_id, descricao, valor, data_despesa) 
 --     d.descricao,
 --     c.nome as categoria,
 --     d.valor,
+--     d.pay,
 --     d.data_despesa,
 --     d.data_criacao
 -- FROM despesas d

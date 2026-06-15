@@ -25,6 +25,8 @@ const pool = mysql.createPool({
 });
 
 const USER_ID = Number(process.env.USER_ID || 1);
+const PAYMENT_METHODS = new Set(['pix', 'debito', 'credito']);
+const DEFAULT_CATEGORY_COLOR = '#3b82f6';
 
 // ============================================
 // ROTAS: DESPESAS
@@ -42,6 +44,7 @@ app.get('/api/despesas', async (req, res) => {
         d.valor,
         d.data_despesa,
         d.observacoes,
+        d.pay,
         c.id as categoria_id,
         c.nome as categoria,
         c.cor_hex
@@ -72,10 +75,10 @@ app.get('/api/despesas', async (req, res) => {
 // POST: Adicionar nova despesa
 app.post('/api/despesas', async (req, res) => {
   try {
-    const { descricao, categoria_id, valor, data_despesa, observacoes } = req.body;
+    const { descricao, categoria_id, valor, data_despesa, observacoes, pay } = req.body;
 
     // Validações
-    if (!descricao || !categoria_id || !valor || !data_despesa) {
+    if (!descricao || !categoria_id || !valor || !data_despesa || !pay) {
       return res.status(400).json({ error: 'Campos obrigatórios faltando' });
     }
 
@@ -83,10 +86,14 @@ app.post('/api/despesas', async (req, res) => {
       return res.status(400).json({ error: 'Valor deve ser maior que 0' });
     }
 
+    if (!PAYMENT_METHODS.has(pay)) {
+      return res.status(400).json({ error: 'Método de pagamento inválido' });
+    }
+
     const [result] = await pool.execute(
-      `INSERT INTO despesas (usuario_id, categoria_id, descricao, valor, data_despesa, observacoes) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [USER_ID, categoria_id, descricao, valor, data_despesa, observacoes || null]
+      `INSERT INTO despesas (usuario_id, categoria_id, descricao, valor, data_despesa, pay, observacoes) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [USER_ID, categoria_id, descricao, valor, data_despesa, pay, observacoes || null]
     );
 
     res.status(201).json({
@@ -95,6 +102,7 @@ app.post('/api/despesas', async (req, res) => {
       categoria_id,
       valor,
       data_despesa,
+      pay,
       observacoes
     });
   } catch (error) {
@@ -125,13 +133,17 @@ app.delete('/api/despesas/:id', async (req, res) => {
 app.put('/api/despesas/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { descricao, categoria_id, valor, data_despesa, observacoes } = req.body;
+    const { descricao, categoria_id, valor, data_despesa, observacoes, pay } = req.body;
+
+    if (pay && !PAYMENT_METHODS.has(pay)) {
+      return res.status(400).json({ error: 'Método de pagamento inválido' });
+    }
 
     await pool.execute(
       `UPDATE despesas 
-       SET descricao = ?, categoria_id = ?, valor = ?, data_despesa = ?, observacoes = ?
+       SET descricao = ?, categoria_id = ?, valor = ?, data_despesa = ?, pay = ?, observacoes = ?
        WHERE id = ? AND usuario_id = ?`,
-      [descricao, categoria_id, valor, data_despesa, observacoes, id, USER_ID]
+      [descricao, categoria_id, valor, data_despesa, pay || 'pix', observacoes, id, USER_ID]
     );
 
     res.json({ success: true, message: 'Despesa atualizada' });
@@ -158,6 +170,42 @@ app.get('/api/categorias', async (req, res) => {
     res.json(categorias);
   } catch (error) {
     console.error('Erro ao buscar categorias:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST: Criar nova categoria
+app.post('/api/categorias', async (req, res) => {
+  try {
+    const { nome, cor_hex } = req.body;
+    const categoryName = nome?.trim();
+    const color = cor_hex || DEFAULT_CATEGORY_COLOR;
+
+    if (!categoryName) {
+      return res.status(400).json({ error: 'Nome da categoria é obrigatório' });
+    }
+
+    if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+      return res.status(400).json({ error: 'Cor da categoria inválida' });
+    }
+
+    const [result] = await pool.execute(
+      `INSERT INTO categorias_despesa (usuario_id, nome, cor_hex)
+       VALUES (?, ?, ?)`,
+      [USER_ID, categoryName, color]
+    );
+
+    res.status(201).json({
+      id: result.insertId,
+      nome: categoryName,
+      cor_hex: color
+    });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Categoria já existe' });
+    }
+
+    console.error('Erro ao criar categoria:', error);
     res.status(500).json({ error: error.message });
   }
 });
