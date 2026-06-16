@@ -78,24 +78,10 @@ CREATE TABLE IF NOT EXISTS orcamentos (
 INSERT INTO usuarios (nome, email, senha) VALUES 
 ('Seu Nome', 'usuario@email.com', 'senha123');
 
--- Inserir categorias padrão
-INSERT INTO categorias_despesa (usuario_id, nome, cor_hex) VALUES 
-(1, 'Cartão Inter', '#ff5722'),
-(1, 'Cartão Nubank', '#9c27b0'),
-(1, 'Cartão Renner', '#00bcd4'),
-(1, 'Conta de Luz', '#ffc107'),
-(1, 'Conta de Água', '#2196f3'),
-(1, 'Internet', '#4caf50'),
-(1, 'Alimentação', '#f97316');
+-- Categorias: começam vazias, usuário cria as suas próprias
+-- Sem dados de exemplo para garantir que o dropdown começa vazio
 
--- Inserir despesas de exemplo
-INSERT INTO despesas (usuario_id, categoria_id, descricao, valor, data_despesa, pay) VALUES 
-(1, 1, 'Compras diversas', 250.00, '2026-06-05', 'credito'),
-(1, 2, 'Alimentação no supermercado', 350.00, '2026-06-10', 'debito'),
-(1, 3, 'Compras de roupas', 200.00, '2026-06-08', 'credito'),
-(1, 4, 'Conta de luz - junho', 150.00, '2026-06-01', 'pix'),
-(1, 5, 'Conta de água - junho', 80.00, '2026-06-02', 'pix'),
-(1, 6, 'Mensalidade internet', 100.00, '2026-06-03', 'debito');
+-- Despesas: serão criadas pelo usuário através da aplicação
 
 -- ============================================
 -- QUERIES ÚTEIS
